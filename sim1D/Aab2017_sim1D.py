@@ -50,6 +50,7 @@ composition = SourceComposition(1 * EeV, 100 * EeV, -1)
 composition.add(1,  1,  1)  # H
 composition.add(4,  2,  1)  # He-4
 composition.add(14, 7,  1)  # N-14
+composition.add(28, 14, 1)  # Silicon
 composition.add(56, 26, 1)  # Fe-56
 source.add( composition )
 
