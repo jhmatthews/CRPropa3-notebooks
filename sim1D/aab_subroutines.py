@@ -1,6 +1,7 @@
-import pylab as pl
+import matplotlib.pyplot as pl
 import numpy as np 
 from crpropa import * 
+from scipy.optimize import minimize
 
 
 def smooth(x,window_len=5,window='hanning'):
@@ -74,11 +75,15 @@ def setup_sim(fname, EBL_model=IRB_Gilmore12, maxdistance=1000):
 	obs.onDetection( output )
 	sim.add( obs )
 	# source
-	source = Source()
-	source.add( SourceUniform1D(1 * Mpc, maxdistance * Mpc) )
-	source.add( SourceRedshift1D() )
+	if maxdistance > 0:
+		source = Source()
+		source.add( SourceUniform1D(1 * Mpc, maxdistance * Mpc) )
+		source.add( SourceRedshift1D() )
+	else:
+		source = None
 
 	return sim, source, output
+
 
 def make_plot_observed(fname, bins=None, norm = None):
 
@@ -150,14 +155,23 @@ def make_plot_observed(fname, bins=None, norm = None):
 	#pl.savefig('sim1D_spectrum.png')
 
 
-def make_plot_observed2(fname, bins=None, norm = None, gamma=2, rcut=1e20):
 
-	d = pl.genfromtxt(fname, names=True, invalid_raise=False)
+def norm_func(norm, y1, y2):
+	if (norm < 0):
+		return (-norm*1e300)
+	x = np.sum( ((norm * y1) - y2)**2 / y2)
+	print (x, norm)
+	return np.sum( ((norm * y1) - y2)**2 / y2)
+
+
+def make_plot_observed2(fname, bins=None, norm = None, gamma=2, rcut=1e20, y=None):
+
+	d = np.genfromtxt(fname, names=True, invalid_raise=False)
 
 	# observed quantities
-	Z = pl.array([chargeNumber(id) for id in d['ID'].astype(int)])  # element
-	A = pl.array([massNumber(id) for id in d['ID'].astype(int)])  # atomic mass number
-	lE = pl.log10(d['E']) + 18  # energy in log10(E/eV))
+	Z = np.array([chargeNumber(id) for id in d['ID'].astype(int)])  # element
+	A = np.array([massNumber(id) for id in d['ID'].astype(int)])  # atomic mass number
+	lE = np.log10(d['E']) + 18  # energy in log10(E/eV))
 
 	Einit = d['E'] * 1e18
 	Efinal = d['E0'] * 1e18
@@ -166,37 +180,44 @@ def make_plot_observed2(fname, bins=None, norm = None, gamma=2, rcut=1e20):
 		weights[i] = renorm(Efinal[i], Einit[i], Z[i], rcut, gamma)
 
 	if bins == None:
-		lEbins = pl.arange(18, 20.51, 0.01)  # logarithmic bins
+		lEbins = np.arange(18, 20.51, 0.01)  # logarithmic bins
 		lEcens = (lEbins[1:] + lEbins[:-1]) / 2  # logarithmic bin centers
 	else:
-		lEbins = pl.arange(17.5, 20.51, 0.1)  # logarithmic bins
+		lEbins = np.arange(17.5, 20.25, 0.1)  # logarithmic bins
 	
 	lEcens = (lEbins[1:] + lEbins[:-1]) / 2  # logarithmic bin centers
 	dE = 10**lEbins[1:] - 10**lEbins[:-1]  # bin widths
 
 	# identify mass groups
 	EE = (10.0 ** lEcens) ** 3
-	J1 = EE * pl.histogram(lE, bins=lEbins, weights=weights)[0] / dE
+	J1 = EE * np.histogram(lE, bins=lEbins, weights=weights)[0] / dE
 	J = np.zeros_like(J1)
+	J_n = [np.zeros_like(J1) for i in range(0,27)]
 	for iz in range(1,27):
 		idx = (Z == iz)
-		J  += pl.histogram(lE[idx], bins=lEbins, weights=weights[idx])[0] / dE
+		J_n[iz] = np.histogram(lE[idx], bins=lEbins, weights=weights[idx])[0] / dE
+		J  += J_n[iz]
 
 	J *= EE
 
-	norm = 1.0 / J[0]
+	select = (lEcens > 19.5)
+	norm = np.max(y[select]) / np.max(J[select])
 
+	J *= norm
 	J1 *= norm
+	for i in range(1,27):
+		J_n[i] *= norm * EE
 	# J2 *= norm
 	# J3 *= norm
-	# J4 *= norm
-	J *= norm
 
 	pl.plot(lEcens, smooth(J),  color='k', linewidth=3, label="Total")
-	pl.plot(lEcens, smooth(J1), color='#e84118', label='A = 1')
-	# pl.plot(lEcens, smooth(J2), color="#7f8fa6", label='A = 2-4')
-	# pl.plot(lEcens, smooth(J3), color="#44bd32", label='A = 5-22')
-	# pl.plot(lEcens, smooth(J4), color="#00a8ff", label='A = 23-38')
+	pl.plot(lEcens, smooth(J_n[1]), label='Z = 1')
+	pl.plot(lEcens, smooth(J_n[2]), label='Z = 2')
+	pl.plot(lEcens, smooth(J_n[7]), label='Z = 7')
+	pl.plot(lEcens, smooth(J_n[14]), label='Z = 14')
+	pl.plot(lEcens, smooth(J_n[26]), label='~ = 26')
+	#pl.plot(lEcens, smooth(J3), color="#44bd32", label='A = 5-22')
+	#pl.plot(lEcens, smooth(J4), color="#00a8ff", label='A = 23-38')
 
 	pl.legend(fontsize=20, frameon=True, loc=3)
 	pl.semilogy()
