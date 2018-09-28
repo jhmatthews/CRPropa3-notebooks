@@ -107,7 +107,8 @@ def make_plot_observed(fname, bins=None, norm = None):
 	EE = (10.0 ** lEcens) ** 3
 	J1 = EE * pl.histogram(lE, bins=lEbins)[0] / dE
 	J = np.zeros_like(J1)
-	for iz in range(1,27):
+	Jn = np.zeros([len(J1, 58)])
+	for iz in range(1,57):
 		idx = (Z == iz)
 		J  += pl.histogram(lE[idx], bins=lEbins)[0] / dE
 
@@ -142,9 +143,9 @@ def make_plot_observed(fname, bins=None, norm = None):
 
 	pl.plot(lEcens, smooth(J),  color='k', linewidth=3, label="Total")
 	pl.plot(lEcens, smooth(J1), color='#e84118', label='A = 1')
-	# pl.plot(lEcens, smooth(J2), color="#7f8fa6", label='A = 2-4')
-	# pl.plot(lEcens, smooth(J3), color="#44bd32", label='A = 5-22')
-	# pl.plot(lEcens, smooth(J4), color="#00a8ff", label='A = 23-38')
+	pl.plot(lEcens, smooth(J2), color="#7f8fa6", label='A = 2-4')
+	pl.plot(lEcens, smooth(J3), color="#44bd32", label='A = 5-22')
+	pl.plot(lEcens, smooth(J4), color="#00a8ff", label='A = 23-38')
 
 	pl.legend(fontsize=20, frameon=True, loc=3)
 	pl.semilogy()
